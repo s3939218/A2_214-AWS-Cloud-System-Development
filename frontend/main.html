@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Main</title>
+  <h2>🎵 Music App</h2>
+</head>
+<body>
+
+<h2>Welcome <span id="user"></span></h2>
+<button onclick="logout()">Logout</button>
+
+<h3>Query Music</h3>
+
+<input type="text" id="title" placeholder="Title">
+<input type="text" id="artist" placeholder="Artist">
+<input type="text" id="year" placeholder="Year">
+<input type="text" id="album" placeholder="Album">
+
+<button onclick="search()">Query</button>
+<h3>Your Subscriptions</h3>
+<div id="subscriptions"></div>
+
+<div id="results"></div>
+
+<script src="script.js"></script>
+
+</body>
+</html>
