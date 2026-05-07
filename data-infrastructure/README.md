@@ -39,7 +39,7 @@ Do not skip steps or run them out of order.
 ## What Each Script Does
 
 | Script | What it creates |
-
+|---|---|
 | `create_login_table.py` | `login` DynamoDB table with 10 test users |
 | `create_music_table.py` | `music` DynamoDB table with GSI and LSI |
 | `load_songs.py` | Loads 137 songs from `2026a2_songs.json` into music table |
@@ -56,6 +56,6 @@ Do not skip steps or run them out of order.
 ## Notes
 
 - `2026a2_songs.json` must be in the same folder as the scripts
-- Scripts are safe to re-run if a table already exists — they will skip creation
+- If tables already exist in AWS, delete them before re-running the creation scripts or they will crash
 - Images are stored privately in S3 — the backend must generate pre-signed URLs to serve them
 - Region: `us-east-1`
