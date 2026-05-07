@@ -23,12 +23,13 @@ dynamodb  = boto3.resource('dynamodb', region_name=REGION)
 
 def create_bucket():
     # us-east-1 does not need CreateBucketConfiguration - other regions do
-    # ref: boto3 docs - LocationConstraint not required for us-east-1
+    # ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/create_bucket.html
     try:
         s3_client.create_bucket(Bucket=BUCKET_NAME)
         print(f"Bucket '{BUCKET_NAME}' created.")
     except ClientError as e:
-        # ref: boto3 docs - ClientError is Python equivalent of AmazonServiceException from Week 5 Java lab
+        # ClientError is Python equivalent of AmazonServiceException from Week 5 Java lab
+        # ref: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/error-handling.html
         code = e.response['Error']['Code']
         if code in ('BucketAlreadyOwnedByYou', 'BucketAlreadyExists'):
             print(f"Bucket '{BUCKET_NAME}' already exists, continuing.")
@@ -37,7 +38,7 @@ def create_bucket():
 
     # block all public access - S3 security best practice covered in Week 5
     # images are served via pre-signed URLs from the backend instead
-    # ref: boto3 docs - put_public_access_block, concept taught in Week 5 tutorial (Ying)
+    # ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/put_public_access_block.html
     s3_client.put_public_access_block(
         Bucket=BUCKET_NAME,
         PublicAccessBlockConfiguration={
@@ -52,7 +53,7 @@ def create_bucket():
 
 def get_unique_images(songs):
     # build a mapping of original URL to S3 key - 71 unique artists = 71 images
-    # ref: Python docs - urlparse extracts filename from URL path
+    # ref: https://docs.python.org/3/library/urllib.parse.html
     url_to_key = {}
     for song in songs:
         url = song['img_url']
@@ -71,13 +72,14 @@ def download_and_upload(url_to_key):
         try:
             print(f"[{i}/{total}] Downloading {filename}...")
 
-            # urllib.request is a built-in Python library for HTTP requests
-            # ref: Python docs - urllib.request.urlopen, not covered in class
+            # urllib.request is a built-in Python library for HTTP requests, not covered in class
+            # ref: https://docs.python.org/3/library/urllib.request.html
             with urllib.request.urlopen(url) as response:
                 image_data = response.read()
 
             # put_object uploads bytes directly to S3
-            # ref: boto3 docs - s3.put_object, Python equivalent of Java putObject from Week 5 lab
+            # Python equivalent of Java putObject from Week 5 lab
+            # ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/put_object.html
             s3_client.put_object(
                 Bucket=BUCKET_NAME,
                 Key=s3_key,
@@ -101,7 +103,7 @@ def update_dynamodb(url_to_key):
     items    = response['Items']
 
     # handle pagination - scan returns max 1MB per call
-    # ref: boto3 docs - use LastEvaluatedKey to continue scanning
+    # ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb/client/scan.html
     while 'LastEvaluatedKey' in response:
         response = table.scan(ExclusiveStartKey=response['LastEvaluatedKey'])
         items.extend(response['Items'])
@@ -127,8 +129,8 @@ def update_dynamodb(url_to_key):
 
 
 def verify_upload(url_to_key):
-    # list_objects_v2 to confirm all images landed in the bucket
-    # ref: boto3 docs - list_objects_v2 with Prefix to filter by folder, not covered in class
+    # list_objects_v2 to confirm all images landed in the bucket, not covered in class
+    # ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/list_objects_v2.html
     response = s3_client.list_objects_v2(Bucket=BUCKET_NAME, Prefix=S3_PREFIX)
     count    = len(response.get('Contents', []))
     expected = len(url_to_key)
