@@ -1,3 +1,5 @@
+const API_URL = "http://54.226.71.206";
+
 // session check - redirect to login if not authenticated - s3874656
 if (!localStorage.getItem("email")) {
   window.location.href = "login.html";
@@ -30,7 +32,7 @@ async function search() {
     return;
   }
 
-  const res = await fetch("https://6ytigq2t1f.execute-api.us-east-1.amazonaws.com/prod/search", {
+  const res = await fetch(`${API_URL}/search`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title, artist, year, album })
@@ -62,7 +64,7 @@ async function search() {
 
 // Subscribe
 async function subscribe(song) {
-  await fetch("https://6ytigq2t1f.execute-api.us-east-1.amazonaws.com/prod/subscribe", {
+  await fetch(`${API_URL}/subscribe`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -83,7 +85,7 @@ if (document.getElementById("subscriptions")) {
 
 async function loadSubscriptions() {
   // pass email as query parameter - backend reads email not user - s3874656
-  const res = await fetch("https://6ytigq2t1f.execute-api.us-east-1.amazonaws.com/prod/subscriptions?email=" + localStorage.getItem("email"));
+  const res = await fetch(`${API_URL}/subscriptions?email=` + localStorage.getItem("email"));
   const data = await res.json();
 
   const container = document.getElementById("subscriptions");
@@ -102,7 +104,7 @@ async function loadSubscriptions() {
 }
 
 async function removeSong(song) {
-  await fetch("https://6ytigq2t1f.execute-api.us-east-1.amazonaws.com/prod/remove", {
+  await fetch(`${API_URL}/remove`, {
     method: "DELETE",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

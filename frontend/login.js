@@ -1,8 +1,10 @@
+const API_URL = "http://54.226.71.206";
+
 async function login() {
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
 
-  const res = await fetch("https://6ytigq2t1f.execute-api.us-east-1.amazonaws.com/prod/login", {
+  const res = await fetch(`${API_URL}/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password })
