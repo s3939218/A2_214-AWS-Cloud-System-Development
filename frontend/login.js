@@ -11,7 +11,8 @@ async function login() {
   const data = await res.json();
 
   if (data.success) {
-    localStorage.setItem("user", data.username);
+    localStorage.setItem("username", data.username);
+    localStorage.setItem("email", data.email);
     window.location.href = "main.html";
   } else {
     document.getElementById("error").innerText = "Email or password is invalid";
