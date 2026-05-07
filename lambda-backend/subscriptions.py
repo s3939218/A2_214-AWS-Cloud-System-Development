@@ -1,53 +1,52 @@
 import json
 import boto3
-from boto3.dynamodb.conditions import Attr
+from boto3.dynamodb.conditions import Key
+from botocore.exceptions import ClientError
 
 dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
-# switched to subscription table - login table should not store subscriptions - s3874656
 TABLE_SUBSCRIPTION = 'subscription'
-TABLE_MUSIC        = 'music'
+S3_BUCKET          = 'rmit-cc-a2-group214-music'
+
+s3 = boto3.client('s3', region_name='us-east-1')
+
+
+def presign(key):
+    if not key:
+        return ''
+    try:
+        return s3.generate_presigned_url(
+            'get_object',
+            Params={'Bucket': S3_BUCKET, 'Key': key},
+            ExpiresIn=3600
+        )
+    except ClientError:
+        return ''
+
 
 def lambda_handler(event, context):
-    body  = json.loads(event.get('body', '{}'))
-    email = body.get('email', '').strip()
-    # frontend sends song as a nested object - s3874656
-    song  = body.get('song', {})
-    title  = song.get('title', '').strip()
-    artist = song.get('artist', '').strip()
-    year   = song.get('year', '').strip()
-    album  = song.get('album', '').strip()
+    params = event.get('queryStringParameters') or {}
+    email  = params.get('email', '').strip()
 
-    if not email or not title or not artist:
-        return response(400, {'message': 'Missing required fields'})
-
-    # compound sort key uniquely identifies the song version - s3874656
-    title_artist = f"{title}#{artist}#{year}"
+    if not email:
+        return response(400, [])
 
     table  = dynamodb.Table(TABLE_SUBSCRIPTION)
-    result = table.get_item(Key={'email': email, 'title_artist': title_artist})
-
-    if result.get('Item'):
-        return response(400, {'message': 'Already subscribed'})
-
-    # fetch S3 key from music table so pre-signed URLs can be generated when listing - s3874656
-    music_table  = dynamodb.Table(TABLE_MUSIC)
-    music_result = music_table.scan(
-        FilterExpression=Attr('title').eq(title) & Attr('artist_name').eq(artist)
+    result = table.query(
+        KeyConditionExpression=Key('email').eq(email)
     )
-    music_items = music_result.get('Items', [])
-    image_url   = music_items[0].get('image_url', '') if music_items else ''
+    items = result.get('Items', [])
 
-    table.put_item(Item={
-        'email':        email,
-        'title_artist': title_artist,
-        'title':        title,
-        'artist_name':  artist,
-        'year':         year,
-        'album':        album,
-        'image_url':    image_url
-    })
+    formatted = []
+    for item in items:
+        formatted.append({
+            'title':     item.get('title'),
+            'artist':    item.get('artist_name'),
+            'year':      item.get('year', ''),
+            'album':     item.get('album', ''),
+            'image_url': presign(item.get('image_url', ''))
+        })
 
-    return response(200, {'message': 'Subscribed successfully'})
+    return response(200, formatted)
 
 
 def response(status_code, body):

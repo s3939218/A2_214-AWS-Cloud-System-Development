@@ -3,7 +3,7 @@ async function register() {
   const username = document.getElementById("username").value;
   const password = document.getElementById("password").value;
 
-  const res = await fetch("YOUR_API_URL/register", {
+  const res = await fetch("https://6ytigq2t1f.execute-api.us-east-1.amazonaws.com/prod/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, username, password })
