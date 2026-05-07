@@ -1,11 +1,17 @@
+// session check - redirect to login if not authenticated
+if (!localStorage.getItem("email")) {
+  window.location.href = "login.html";
+}
+
 const userElement = document.getElementById("user");
 if (userElement) {
-  userElement.innerText = localStorage.getItem("user");
+  userElement.innerText = localStorage.getItem("username");
 }
 
 // Logout
 function logout() {
-  localStorage.removeItem("user");
+  localStorage.removeItem("username");
+  localStorage.removeItem("email");
   window.location.href = "login.html";
 }
 
@@ -15,6 +21,11 @@ async function search() {
   const artist = document.getElementById("artist").value;
   const year = document.getElementById("year").value;
   const album = document.getElementById("album").value;
+
+  if (!title && !artist && !year && !album) {
+    document.getElementById("results").innerHTML = "Please enter at least one search field.";
+    return;
+  }
 
   const res = await fetch("YOUR_API_URL/search", {
     method: "POST",
@@ -37,7 +48,7 @@ async function search() {
       <div style="border:1px solid #ccc; padding:10px; margin:10px;">
         <p><b>${song.title}</b> - ${song.artist}</p>
         <p>${song.album} (${song.year})</p>
-        <img src="${song.img_url}" width="100"><br>
+        <img src="${song.image_url}" width="100"><br>
         <button onclick='subscribe(${JSON.stringify(song)})'>Subscribe</button>
       </div>
     `;
@@ -50,18 +61,21 @@ async function subscribe(song) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      user: localStorage.getItem("user"),
+      email: localStorage.getItem("email"),
       song: song
     })
   });
 
   alert("Subscribed!");
+  loadSubscriptions();
 }
+
 if (document.getElementById("subscriptions")) {
   loadSubscriptions();
 }
+
 async function loadSubscriptions() {
-  const res = await fetch("YOUR_API_URL/subscriptions?user=" + localStorage.getItem("user"));
+  const res = await fetch("YOUR_API_URL/subscriptions?email=" + localStorage.getItem("email"));
   const data = await res.json();
 
   const container = document.getElementById("subscriptions");
@@ -71,18 +85,19 @@ async function loadSubscriptions() {
     container.innerHTML += `
       <div style="border:1px solid green; padding:10px; margin:10px;">
         <p><b>${song.title}</b> - ${song.artist}</p>
-        <img src="${song.img_url}" width="100"><br>
+        <img src="${song.image_url}" width="100"><br>
         <button onclick='removeSong(${JSON.stringify(song)})'>Remove</button>
       </div>
     `;
   });
 }
+
 async function removeSong(song) {
   await fetch("YOUR_API_URL/remove", {
     method: "DELETE",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      user: localStorage.getItem("user"),
+      email: localStorage.getItem("email"),
       song: song
     })
   });
