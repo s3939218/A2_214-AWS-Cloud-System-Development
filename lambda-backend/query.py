@@ -1,52 +1,119 @@
 import json
 import boto3
-from boto3.dynamodb.conditions import Attr
+from boto3.dynamodb.conditions import Attr, Key
+from botocore.exceptions import ClientError
 
 dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
-TABLE_MUSIC = "music"
-S3_BUCKET = "your-bucket-name"  # placeholder
-S3_REGION = "us-east-1"
+# updated bucket name from placeholder to actual bucket - s3874656
+S3_BUCKET  = 'rmit-cc-a2-group214-music'
+TABLE_MUSIC = 'music'
+
+s3 = boto3.client('s3', region_name='us-east-1')
+
+
+def presign(key):
+    # generate pre-signed URL - bucket is private so direct S3 URLs won't work - s3874656
+    if not key:
+        return ''
+    try:
+        return s3.generate_presigned_url(
+            'get_object',
+            Params={'Bucket': S3_BUCKET, 'Key': key},
+            ExpiresIn=3600
+        )
+    except ClientError:
+        return ''
+
 
 def lambda_handler(event, context):
-    body = json.loads(event.get('body', '{}'))
-    title = body.get('title', '').strip()
+    body   = json.loads(event.get('body', '{}'))
+    title  = body.get('title', '').strip()
     artist = body.get('artist', '').strip()
-    year = body.get('year', '').strip()
-    album = body.get('album', '').strip()
+    year   = body.get('year', '').strip()
+    album  = body.get('album', '').strip()
 
-    # At least one field must be provided
     if not any([title, artist, year, album]):
         return response(400, {'message': 'At least one search field is required'})
 
     table = dynamodb.Table(TABLE_MUSIC)
 
-    # Build and filter expression dynamically
-    filters = []
-    if title:
-        filters.append(Attr('title').eq(title))
     if artist:
-        filters.append(Attr('artist').eq(artist))
-    if year:
-        filters.append(Attr('year').eq(year))
-    if album:
-        filters.append(Attr('album').eq(album))
+        # Query GSI artist-year-index instead of scan - efficient for artist searches - s3874656
+        key_expr = Key('artist_name').eq(artist)
+        if year:
+            key_expr = key_expr & Key('year').eq(year)
 
-    filter_expression = filters[0]
-    for f in filters[1:]:
-        filter_expression = filter_expression & f
+        filter_exprs = []
+        if title:
+            filter_exprs.append(Attr('title').eq(title))
+        if album:
+            filter_exprs.append(Attr('album').eq(album))
 
-    result = table.scan(FilterExpression=filter_expression)
-    songs = result.get('Items', [])
+        query_kwargs = {
+            'IndexName': 'artist-year-index',
+            'KeyConditionExpression': key_expr
+        }
+        if filter_exprs:
+            expr = filter_exprs[0]
+            for f in filter_exprs[1:]:
+                expr = expr & f
+            query_kwargs['FilterExpression'] = expr
+
+        result = table.query(**query_kwargs)
+        songs  = result.get('Items', [])
+
+    elif title:
+        # Query base table by title partition key - s3874656
+        filter_exprs = []
+        if year:
+            filter_exprs.append(Attr('year').eq(year))
+        if album:
+            filter_exprs.append(Attr('album').eq(album))
+
+        query_kwargs = {'KeyConditionExpression': Key('title').eq(title)}
+        if filter_exprs:
+            expr = filter_exprs[0]
+            for f in filter_exprs[1:]:
+                expr = expr & f
+            query_kwargs['FilterExpression'] = expr
+
+        result = table.query(**query_kwargs)
+        songs  = result.get('Items', [])
+
+    else:
+        # Scan only as last resort when no key attribute is available - s3874656
+        filter_exprs = []
+        if year:
+            filter_exprs.append(Attr('year').eq(year))
+        if album:
+            filter_exprs.append(Attr('album').eq(album))
+
+        expr = filter_exprs[0]
+        for f in filter_exprs[1:]:
+            expr = expr & f
+
+        result = table.scan(FilterExpression=expr)
+        songs  = result.get('Items', [])
 
     if not songs:
-        return response(200, {'message': 'No result is retrieved. Please query again', 'songs': []})
+        # return empty array - frontend checks data.length === 0 - s3874656
+        return response(200, [])
 
-    # Attach S3 image URL to each song
+    formatted = []
     for song in songs:
-        artist_name = song.get('artist', '').replace(' ', '')
-        song['image_url'] = f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/{artist_name}.jpg"
+        formatted.append({
+            'title':     song.get('title'),
+            # use artist_name not artist - artist field stores compound sort key - s3874656
+            'artist':    song.get('artist_name'),
+            'year':      song.get('year', ''),
+            'album':     song.get('album', ''),
+            # generate pre-signed URL from S3 key stored in DynamoDB - s3874656
+            'image_url': presign(song.get('image_url', ''))
+        })
 
-    return response(200, {'message': 'success', 'songs': songs})
+    # return plain array - frontend does data.forEach() expecting array not object - s3874656
+    return response(200, formatted)
+
 
 def response(status_code, body):
     return {
