@@ -2,7 +2,7 @@ import os
 import boto3
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from boto3.dynamodb.conditions import Attr
+from boto3.dynamodb.conditions import Attr, Key
 from botocore.exceptions import ClientError
 
 app = Flask(__name__)
@@ -11,6 +11,7 @@ CORS(app)
 REGION         = os.environ.get('AWS_REGION', 'us-east-1')
 TABLE_LOGIN    = os.environ.get('LOGIN_TABLE', 'login')
 TABLE_MUSIC    = os.environ.get('MUSIC_TABLE', 'music')
+TABLE_SUBSCRIPTION = os.environ.get('SUBSCRIPTION_TABLE', 'subscription')
 S3_BUCKET      = os.environ.get('S3_BUCKET', 'rmit-cc-a2-group214-music')
 PRESIGN_EXPIRY = int(os.environ.get('PRESIGN_EXPIRY', '3600'))
 
@@ -103,29 +104,74 @@ def search():
     if not any([title, artist, year, album]):
         return jsonify({'message': 'At least one search field is required'}), 400
 
-    filters = []
-    if title:
-        filters.append(Attr('title').eq(title))
+    table = dynamodb.Table(TABLE_MUSIC)
+
     if artist:
-        filters.append(Attr('artist_name').eq(artist))
-    if year:
-        filters.append(Attr('year').eq(year))
-    if album:
-        filters.append(Attr('album').eq(album))
+        # Query GSI artist-year-index - efficient for artist-based searches
+        key_expr = Key('artist_name').eq(artist)
+        if year:
+            key_expr = key_expr & Key('year').eq(year)
 
-    expr  = filters[0]
-    for f in filters[1:]:
-        expr = expr & f
+        filter_exprs = []
+        if title:
+            filter_exprs.append(Attr('title').eq(title))
+        if album:
+            filter_exprs.append(Attr('album').eq(album))
 
-    items = scan_all(dynamodb.Table(TABLE_MUSIC), FilterExpression=expr)
+        query_kwargs = {
+            'IndexName': 'artist-year-index',
+            'KeyConditionExpression': key_expr
+        }
+        if filter_exprs:
+            expr = filter_exprs[0]
+            for f in filter_exprs[1:]:
+                expr = expr & f
+            query_kwargs['FilterExpression'] = expr
+
+        response = table.query(**query_kwargs)
+        items    = response.get('Items', [])
+
+    elif title:
+        # Query base table by title partition key
+        filter_exprs = []
+        if year:
+            filter_exprs.append(Attr('year').eq(year))
+        if album:
+            filter_exprs.append(Attr('album').eq(album))
+
+        query_kwargs = {
+            'KeyConditionExpression': Key('title').eq(title)
+        }
+        if filter_exprs:
+            expr = filter_exprs[0]
+            for f in filter_exprs[1:]:
+                expr = expr & f
+            query_kwargs['FilterExpression'] = expr
+
+        response = table.query(**query_kwargs)
+        items    = response.get('Items', [])
+
+    else:
+        # Scan - only when searching by year or album alone with no key available
+        filter_exprs = []
+        if year:
+            filter_exprs.append(Attr('year').eq(year))
+        if album:
+            filter_exprs.append(Attr('album').eq(album))
+
+        expr = filter_exprs[0]
+        for f in filter_exprs[1:]:
+            expr = expr & f
+
+        items = scan_all(table, FilterExpression=expr)
 
     return jsonify([
         {
-            'title':   item['title'],
-            'artist':  item['artist_name'],
-            'year':    item.get('year', ''),
-            'album':   item.get('album', ''),
-            'img_url': presign(item.get('image_url', '')),
+            'title':     item['title'],
+            'artist':    item['artist_name'],
+            'year':      item.get('year', ''),
+            'album':     item.get('album', ''),
+            'image_url': presign(item.get('image_url', '')),
         }
         for item in items
     ])
@@ -135,27 +181,27 @@ def search():
 
 @app.route('/subscriptions', methods=['GET'])
 def list_subscriptions():
-    email = request.args.get('user', '').strip()
+    email = request.args.get('email', '').strip()
 
     if not email:
         return jsonify([])
 
-    table  = dynamodb.Table(TABLE_LOGIN)
-    result = table.get_item(Key={'email': email})
-    user   = result.get('Item')
-
-    if not user:
-        return jsonify([])
+    # query subscription table by email - efficient partition key lookup
+    table    = dynamodb.Table(TABLE_SUBSCRIPTION)
+    response = table.query(
+        KeyConditionExpression=Key('email').eq(email)
+    )
+    items = response.get('Items', [])
 
     return jsonify([
         {
-            'title':   s.get('title'),
-            'artist':  s.get('artist'),
-            'year':    s.get('year', ''),
-            'album':   s.get('album', ''),
-            'img_url': presign(s['image_url']) if s.get('image_url') else '',
+            'title':     item.get('title'),
+            'artist':    item.get('artist_name'),
+            'year':      item.get('year', ''),
+            'album':     item.get('album', ''),
+            'image_url': presign(item.get('image_url', ''))
         }
-        for s in user.get('subscriptions', [])
+        for item in items
     ])
 
 
@@ -164,7 +210,7 @@ def list_subscriptions():
 @app.route('/subscribe', methods=['POST'])
 def subscribe():
     body   = request.get_json(force=True) or {}
-    email  = body.get('user', '').strip()
+    email  = body.get('email', '').strip()
     song   = body.get('song', {})
     title  = song.get('title', '').strip()
     artist = song.get('artist', '').strip()
@@ -174,38 +220,32 @@ def subscribe():
     if not email or not title or not artist:
         return jsonify({'message': 'Missing required fields'}), 400
 
-    login_table = dynamodb.Table(TABLE_LOGIN)
-    result      = login_table.get_item(Key={'email': email})
-    user        = result.get('Item')
+    # sort key uniquely identifies the song version
+    title_artist = f"{title}#{artist}#{year}"
 
-    if not user:
-        return jsonify({'message': 'User not found'}), 404
+    table  = dynamodb.Table(TABLE_SUBSCRIPTION)
+    result = table.get_item(Key={'email': email, 'title_artist': title_artist})
 
-    subs = user.get('subscriptions', [])
-    for sub in subs:
-        if sub.get('title') == title and sub.get('artist') == artist:
-            return jsonify({'message': 'Already subscribed'}), 400
+    if result.get('Item'):
+        return jsonify({'message': 'Already subscribed'}), 400
 
-    # Fetch the S3 key so pre-signed URLs can be generated when listing later
+    # fetch S3 key from music table for pre-signed URL generation later
     music_items = scan_all(
         dynamodb.Table(TABLE_MUSIC),
-        FilterExpression=Attr('title').eq(title) & Attr('artist_name').eq(artist),
+        FilterExpression=Attr('title').eq(title) & Attr('artist_name').eq(artist)
     )
     image_url = music_items[0].get('image_url', '') if music_items else ''
 
-    subs.append({
-        'title':     title,
-        'artist':    artist,
-        'year':      year,
-        'album':     album,
-        'image_url': image_url,
+    table.put_item(Item={
+        'email':       email,
+        'title_artist': title_artist,
+        'title':       title,
+        'artist_name': artist,
+        'year':        year,
+        'album':       album,
+        'image_url':   image_url
     })
 
-    login_table.update_item(
-        Key={'email': email},
-        UpdateExpression='SET subscriptions = :s',
-        ExpressionAttributeValues={':s': subs},
-    )
     return jsonify({'message': 'Subscribed successfully'})
 
 
@@ -214,36 +254,29 @@ def subscribe():
 @app.route('/remove', methods=['DELETE'])
 def remove():
     body   = request.get_json(force=True) or {}
-    email  = body.get('user', '').strip()
+    email  = body.get('email', '').strip()
     song   = body.get('song', {})
     title  = song.get('title', '').strip()
     artist = song.get('artist', '').strip()
+    year   = song.get('year', '').strip()
 
     if not email or not title or not artist:
         return jsonify({'message': 'Missing required fields'}), 400
 
-    table  = dynamodb.Table(TABLE_LOGIN)
-    result = table.get_item(Key={'email': email})
-    user   = result.get('Item')
+    # reconstruct sort key to target exact item
+    title_artist = f"{title}#{artist}#{year}"
 
-    if not user:
-        return jsonify({'message': 'User not found'}), 404
+    table  = dynamodb.Table(TABLE_SUBSCRIPTION)
+    result = table.get_item(Key={'email': email, 'title_artist': title_artist})
 
-    subs    = user.get('subscriptions', [])
-    updated = [s for s in subs if not (s.get('title') == title and s.get('artist') == artist)]
-
-    if len(updated) == len(subs):
+    if not result.get('Item'):
         return jsonify({'message': 'Subscription not found'}), 404
 
-    table.update_item(
-        Key={'email': email},
-        UpdateExpression='SET subscriptions = :s',
-        ExpressionAttributeValues={':s': updated},
-    )
+    table.delete_item(Key={'email': email, 'title_artist': title_artist})
     return jsonify({'message': 'Removed successfully'})
 
 
 # entry point 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    app.run(host='0.0.0.0', port=80, debug=False)
