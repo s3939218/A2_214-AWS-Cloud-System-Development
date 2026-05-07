@@ -1,15 +1,17 @@
-// session check - redirect to login if not authenticated
+// session check - redirect to login if not authenticated - s3874656
 if (!localStorage.getItem("email")) {
   window.location.href = "login.html";
 }
 
 const userElement = document.getElementById("user");
 if (userElement) {
+  // display username from localStorage - s3874656
   userElement.innerText = localStorage.getItem("username");
 }
 
 // Logout
 function logout() {
+  // clear both username and email on logout - s3874656
   localStorage.removeItem("username");
   localStorage.removeItem("email");
   window.location.href = "login.html";
@@ -22,6 +24,7 @@ async function search() {
   const year = document.getElementById("year").value;
   const album = document.getElementById("album").value;
 
+  // at least one field required per assignment spec - s3874656
   if (!title && !artist && !year && !album) {
     document.getElementById("results").innerHTML = "Please enter at least one search field.";
     return;
@@ -61,12 +64,14 @@ async function subscribe(song) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      // send email not username - subscription table uses email as key - s3874656
       email: localStorage.getItem("email"),
       song: song
     })
   });
 
   alert("Subscribed!");
+  // refresh subscriptions immediately after subscribing - s3874656
   loadSubscriptions();
 }
 
@@ -75,6 +80,7 @@ if (document.getElementById("subscriptions")) {
 }
 
 async function loadSubscriptions() {
+  // pass email as query parameter - backend reads email not user - s3874656
   const res = await fetch("YOUR_API_URL/subscriptions?email=" + localStorage.getItem("email"));
   const data = await res.json();
 
@@ -97,6 +103,7 @@ async function removeSong(song) {
     method: "DELETE",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      // send email not username - s3874656
       email: localStorage.getItem("email"),
       song: song
     })

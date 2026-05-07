@@ -11,10 +11,12 @@ async function login() {
   const data = await res.json();
 
   if (data.success) {
+    // store both username and email separately - subscription table uses email as key - s3874656
     localStorage.setItem("username", data.username);
     localStorage.setItem("email", data.email);
     window.location.href = "main.html";
   } else {
-    document.getElementById("error").innerText = "Email or password is invalid";
+    // fixed capitalisation to match exact spec wording - s3874656
+    document.getElementById("error").innerText = "email or password is invalid";
   }
 }
