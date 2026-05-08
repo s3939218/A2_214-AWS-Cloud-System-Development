@@ -1,3 +1,3 @@
 const CONFIG = {
-  API: "http://<EC2_PUBLIC_IP>"
+  API: "http://3.81.109.45"
 };

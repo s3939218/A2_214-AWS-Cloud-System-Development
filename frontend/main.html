@@ -1,32 +1,117 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Music App</title>
+
   <link rel="stylesheet" href="style.css">
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Main</title>
 </head>
-<body>
 
-<h2>Welcome <span id="user"></span></h2>
-<button onclick="logout()">Logout</button>
+<body class="main-page">
 
-<h3>Your Subscriptions</h3>
-<div id="subscriptions"></div>
+  <div class="dashboard">
 
-<h3>Query Music</h3>
+    <!-- ===== HEADER ===== -->
 
-<input type="text" id="title" placeholder="Title">
-<input type="text" id="artist" placeholder="Artist">
-<input type="text" id="year" placeholder="Year">
-<input type="text" id="album" placeholder="Album">
+    <header class="dashboard-header">
 
-<button onclick="search()">Query</button>
+      <div class="logo-section">
+        <h1>Music App</h1>
+        <p>
+          Welcome,
+          <span id="user"></span> 
+        </p>
+      </div>
 
-<div id="results"></div>
+      <button class="logout-btn" onclick="logout()">
+        ⎋ Logout
+      </button>
 
-<script src="config.js"></script>
-<script src="script.js"></script>
+    </header>
+
+    <!-- ===== SEARCH SECTION ===== -->
+
+    <section class="dashboard-card">
+
+      <h2>🔎 Search Music</h2>
+
+      <p class="section-text">
+        Search for music by title, artist, album or year
+      </p>
+
+      <div class="search-grid">
+
+        <input
+          type="text"
+          id="title"
+          placeholder="🎵 Title"
+        >
+
+        <input
+          type="text"
+          id="artist"
+          placeholder="👤 Artist"
+        >
+
+        <input
+          type="text"
+          id="year"
+          placeholder="📅 Year"
+        >
+
+        <input
+          type="text"
+          id="album"
+          placeholder="💿 Album"
+        >
+
+      </div>
+
+      <button class="query-btn" onclick="search()">
+        🔍 Query
+      </button>
+
+    </section>
+
+    <!-- ===== SUBSCRIPTIONS ===== -->
+
+    <section class="dashboard-card">
+
+      <h2>💜 Your Subscriptions</h2>
+
+      <div id="subscriptions" class="music-grid">
+
+        <div class="empty-state">
+          <p>No subscriptions yet.</p>
+          <span>Search for music and subscribe to your favourites!</span>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- ===== RESULTS ===== -->
+
+    <section class="dashboard-card">
+
+      <h2>🎶 Search Results</h2>
+
+      <div id="results" class="music-grid">
+
+        <div class="empty-state">
+          <p>No results to display.</p>
+          <span>Use the search form above to find music.</span>
+        </div>
+
+      </div>
+
+    </section>
+
+  </div>
+
+  <script src="config.js"></script>
+  <script src="script.js"></script>
 
 </body>
 </html>
