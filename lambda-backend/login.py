@@ -22,8 +22,11 @@ def lambda_handler(event, context):
         return response(400, {'message': 'email or password is invalid'})
 
     return response(200, {
+        # added success field - frontend login.js checks data.success to redirect - s3874656
+        'success': True,
         'message': 'Login successful',
-        'user_name': user.get('user_name'),
+        # renamed to match frontend expectation - login.js stores data.username - s3874656
+        'username': user.get('user_name'),
         'email': email
     })
 

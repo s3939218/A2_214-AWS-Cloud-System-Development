@@ -1,53 +1,54 @@
 import json
 import boto3
+from boto3.dynamodb.conditions import Attr
 
 dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
-TABLE_LOGIN = "login"
+# switched to subscription table - login table should not store subscriptions - s3874656
+TABLE_SUBSCRIPTION = 'subscription'
+TABLE_MUSIC        = 'music'
 
 def lambda_handler(event, context):
-    body = json.loads(event.get('body', '{}'))
+    body  = json.loads(event.get('body', '{}'))
     email = body.get('email', '').strip()
-    title = body.get('title', '').strip()
-    artist = body.get('artist', '').strip()
-    year = body.get('year', '').strip()
-    album = body.get('album', '').strip()
+    # frontend sends song as a nested object - s3874656
+    song  = body.get('song', {})
+    title  = song.get('title', '').strip()
+    artist = song.get('artist', '').strip()
+    year   = song.get('year', '').strip()
+    album  = song.get('album', '').strip()
 
     if not email or not title or not artist:
         return response(400, {'message': 'Missing required fields'})
 
-    table = dynamodb.Table(TABLE_LOGIN)
+    # compound sort key uniquely identifies the song version - s3874656
+    title_artist = f"{title}#{artist}#{year}"
 
-    # Get current user
-    result = table.get_item(Key={'email': email})
-    user = result.get('Item')
+    table  = dynamodb.Table(TABLE_SUBSCRIPTION)
+    result = table.get_item(Key={'email': email, 'title_artist': title_artist})
 
-    if not user:
-        return response(404, {'message': 'User not found'})
+    if result.get('Item'):
+        return response(400, {'message': 'Already subscribed'})
 
-    # Get existing subscriptions or start empty list
-    subscriptions = user.get('subscriptions', [])
+    # fetch S3 key from music table so pre-signed URLs can be generated when listing - s3874656
+    music_table  = dynamodb.Table(TABLE_MUSIC)
+    music_result = music_table.scan(
+        FilterExpression=Attr('title').eq(title) & Attr('artist_name').eq(artist)
+    )
+    music_items = music_result.get('Items', [])
+    image_url   = music_items[0].get('image_url', '') if music_items else ''
 
-    # Check subscription already exists
-    for sub in subscriptions:
-        if sub.get('title') == title and sub.get('artist') == artist:
-            return response(400, {'message': 'Already subscribed'})
-
-    # Add new subscription
-    subscriptions.append({
-        'title': title,
-        'artist': artist,
-        'year': year,
-        'album': album
+    table.put_item(Item={
+        'email':        email,
+        'title_artist': title_artist,
+        'title':        title,
+        'artist_name':  artist,
+        'year':         year,
+        'album':        album,
+        'image_url':    image_url
     })
 
-    # Update user record
-    table.update_item(
-        Key={'email': email},
-        UpdateExpression='SET subscriptions = :s',
-        ExpressionAttributeValues={':s': subscriptions}
-    )
-
     return response(200, {'message': 'Subscribed successfully'})
+
 
 def response(status_code, body):
     return {
