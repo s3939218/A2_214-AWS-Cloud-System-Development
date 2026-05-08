@@ -1,24 +1,30 @@
-const API_URL = "http://54.226.71.206";
+const API = CONFIG.API;
 
 async function login() {
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
 
-  const res = await fetch(`${API_URL}/login`, {
+  console.log("Sending:", { email, password });
+
+  const res = await fetch(API + "/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password })
   });
 
+  console.log("Response status:", res.status);
+
   const data = await res.json();
+  console.log("Response data:", data);
 
   if (data.success) {
-    // store both username and email separately - subscription table uses email as key - s3874656
+    // store both username and email separately
     localStorage.setItem("username", data.username);
     localStorage.setItem("email", data.email);
+
     window.location.href = "main.html";
   } else {
-    // fixed capitalisation to match exact spec wording - s3874656
-    document.getElementById("error").innerText = "email or password is invalid";
+    document.getElementById("error").innerText =
+      "email or password is invalid";
   }
 }

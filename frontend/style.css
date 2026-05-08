@@ -1,76 +1,110 @@
-#error {
-  color: red;
-}
 body {
-  font-family: Arial, sans-serif;
-  background: linear-gradient(to right, #667eea, #764ba2);
   margin: 0;
-  padding: 0;
-  color: #333;
+  font-family: 'Segoe UI', sans-serif;
+
+  background: linear-gradient(
+    rgba(243, 71, 232, 0.75),
+    rgba(26, 13, 27, 0.85)
+  ),
+  url("https://images.unsplash.com/photo-1506157786151-b8491531f063");
+
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
-/* Center container */
-body > * {
-  margin-left: auto;
-  margin-right: auto;
-  max-width: 900px;
-}
+/* ===== CARD ===== */
+.container {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 
-/* Card style */
-h2, h3, input, button, div {
-  margin-top: 10px;
-}
+  padding: 30px;
+  border-radius: 15px;
+  width: 350px;
 
-/* Headings */
-h2 {
   color: white;
   text-align: center;
+
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-h3 {
-  color: white;
+.container:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 40px rgba(0,0,0,0.4);
 }
 
-/* Inputs */
+/* ===== LOGO ===== */
+.logo {
+  margin-bottom: 10px;
+  font-size: 26px;
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+
+/* ===== INPUTS ===== */
 input {
-  padding: 10px;
+  display: block;
+  width: 100%;
+  max-width: 280px;
+  margin: 10px auto;
+
+  padding: 12px;
   border-radius: 8px;
   border: none;
-  width: 22%;
-  margin-right: 5px;
+
+  background: rgba(255,255,255,0.9);
+  color: black;
+
+  transition: all 0.3s ease;
+}
+input:hover,
+input:focus {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(255,255,255,0.3);
+
+  outline: none;
+}
+input:focus {
+  box-shadow: 0 0 15px rgba(243, 71, 232, 0.6);
 }
 
-/* Buttons */
 button {
-  padding: 10px 15px;
-  border-radius: 8px;
+  display: block;
+  width: 100%;
+  max-width: 280px;
+  margin: 15px auto;
+
+  padding: 12px;
+  background: #ff7a18;
   border: none;
-  background-color: #ff7a18;
   color: white;
+
+  font-size: 16px;
+  border-radius: 8px;
   cursor: pointer;
-  transition: 0.3s;
 }
 
 button:hover {
-  background-color: #ff5200;
+  background: #e56710;
 }
 
-/* Result cards */
-#results div,
-#subscriptions div {
-  background: white;
-  border-radius: 10px;
-  padding: 10px;
+/* ===== ERROR TEXT ===== */
+.error {
+  color: #ff4d4d;
   margin-top: 10px;
 }
 
-/* Images */
-img {
-  border-radius: 8px;
-  margin-top: 5px;
-}
-
-/* Logout button */
-button[onclick="logout()"] {
-  background-color: red;
+/* ===== LINK ===== */
+a {
+  display: block;
+  margin-top: 10px;
+  color: #fff;
+  text-decoration: underline;
 }
