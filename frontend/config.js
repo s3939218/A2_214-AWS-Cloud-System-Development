@@ -1,3 +1,3 @@
 const CONFIG = {
-  API: "http://3.81.109.45"
+  API: "http://100.48.12.22"
 };

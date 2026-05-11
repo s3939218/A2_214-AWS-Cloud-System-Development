@@ -187,7 +187,7 @@ a {
   padding: 35px;
   margin-bottom: 30px;
 
-  box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
 }
 
 /* ===== TITLES ===== */
@@ -312,4 +312,7 @@ a {
 
 .logout-btn {
   margin-left: auto;
+}
+.dashboard-card p {
+  color: white !important;
 }
